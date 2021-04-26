@@ -6,13 +6,29 @@
     android:layout_height="match_parent"
     tools:context=".FirstFragment">
 
+    <ProgressBar
+        android:id="@+id/progressbar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:indeterminate="true"
+        android:max="100"
+        android:backgroundTint="@color/white"
+        android:indeterminateTint="#1a09d6"
+        android:layout_marginTop="-7dp"
+        tools:ignore="MissingConstraints" />
+
     <TextView
         android:id="@+id/textview_first"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/hello_first_fragment"
+        android:layout_width="350dp"
+        android:layout_height="454dp"
+        android:maxLines="40"
+        android:nestedScrollingEnabled="false"
+        android:scrollbars="vertical"
+        android:text='Click "TRAIN" to start the model training process'
         app:layout_constraintBottom_toTopOf="@id/button_train"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.491"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
@@ -20,9 +36,12 @@
         android:id="@+id/button_train"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:maxLines="10"
         android:text="@string/train"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.498"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/textview_first" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

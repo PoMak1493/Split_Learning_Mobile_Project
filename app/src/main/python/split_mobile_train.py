@@ -16,6 +16,9 @@ import torch.optim as optim
 from datetime import datetime
 from os.path import dirname, join
 import layout_output_sender
+import os.path
+from os import path
+import io
 
 # Ignore warnings
 import warnings
@@ -27,7 +30,7 @@ def greet(name):
     print("--- hello,%s ---" % name)
 
 def get_java_bean():
-    JavaBean = jclass("com.example.chaquopy_experiment.JavaBean")#用自己的包名
+    JavaBean = jclass("com.example.chaquopy_experiment.JavaBean")
     jb = JavaBean("python")
     jb.setData("json")
     jb.setData("xml")
@@ -62,7 +65,7 @@ class EmotionFaceTrainDataset(Dataset):
 
 #The following is the network class
 class AlexNet_Mobile(nn.Module):
-    def __init__(self, num_classes: int = 1000) -> None:
+    def __init__(self, num_classes: int = 7) -> None:
         super(AlexNet_Mobile, self).__init__()
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 96, kernel_size=11, stride=4),
@@ -110,19 +113,26 @@ class AlexNet_Mobile(nn.Module):
             nn.Linear(4096, num_classes)
         )
 
+        self.cutlayer = nn.Sequential(
+            nn.Identity()
+        )
+
     def first_process_layer1(self, x: torch.Tensor):
         x = self.layer1(x)
+        x = self.cutlayer(x)
         return x
 
     def first_process_layer2(self, x: torch.Tensor):
         x = self.layer1(x)
         x = self.layer2(x)
+        x = self.cutlayer(x)
         return x
 
     def first_process_layer3(self, x: torch.Tensor):
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
+        x = self.cutlayer(x)
         return x
 
     def first_process_layer4(self, x: torch.Tensor):
@@ -130,6 +140,7 @@ class AlexNet_Mobile(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
+        x = self.cutlayer(x)
         return x
 
     def first_process_layer5(self, x: torch.Tensor):
@@ -139,6 +150,7 @@ class AlexNet_Mobile(nn.Module):
         x = self.layer4(x)
         x = self.layer5(x)
         x = torch.flatten(x, 1)
+        x = self.cutlayer(x)
         return x
 
     def first_process_layer6(self, x: torch.Tensor):
@@ -149,6 +161,7 @@ class AlexNet_Mobile(nn.Module):
         x = self.layer5(x)
         x = torch.flatten(x, 1)
         x = self.layer6(x)
+        x = self.cutlayer(x)
         return x
 
     def first_process_layer7(self, x: torch.Tensor):
@@ -160,9 +173,23 @@ class AlexNet_Mobile(nn.Module):
         x = torch.flatten(x, 1)
         x = self.layer6(x)
         x = self.layer7(x)
+        x = self.cutlayer(x)
         return x
 
     def first_process_layer8(self, x: torch.Tensor):
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.layer5(x)
+        x = torch.flatten(x, 1)
+        x = self.layer6(x)
+        x = self.layer7(x)
+        x = self.layer8(x)
+        x = self.cutlayer(x)
+        return x
+
+    def inference(self,x: torch.Tensor):
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
@@ -184,68 +211,83 @@ class AlexNet_Mobile(nn.Module):
         6: first_process_layer6,
         7: first_process_layer7,
         8: first_process_layer8,
+        9: inference
     }
 
     def forward(self, x: torch.Tensor, layer_no) -> torch.Tensor:
-        x = first_process_option[layer_no](self, x)
+        x = first_process_option[layer_no](self,x)
         return x
 
 
 # Implement the train model
 def train_in_mobile(trainloader):
+    training_log = ""
+    device = torch.device("cpu")
     net = AlexNet_Mobile()
+
+    if (path.exists(join(dirname(__file__), "client_new.pkl")) == True):
+        net.load_state_dict(torch.load(join(dirname(__file__), "client_new.pkl"), map_location=device))
+
 
     criterion = nn.CrossEntropyLoss()
 
     optimizer = optim.SGD(net.parameters(), lr=1e-2, momentum=0.9)
 
-    device = torch.device("cpu")
+
 
     net.to(device)
 
-    layer_no = 6
+    layer_no = 3
 
-    print("Start Training - Mobile")
+    #print("Start Training - Mobile")
+    training_log = training_log + "Start Training - Mobile\n"
 
-    num_epochs = 10
+    num_epochs = 5
 
     for epoch in range(num_epochs):
-        running_loss = 0
-        batch_size = 100
 
-        print("Epochs : {epoch}".format(epoch=epoch))
+        #print("Epochs : {epoch}".format(epoch=epoch))
+        training_log = training_log + "Epochs : {epoch}".format(epoch=epoch+1) + "\n"
+
         start_time = datetime.now()
-        print("Start Time: ", start_time.strftime("%H:%M:%S"))
+        #print("Start Time: ", start_time.strftime("%H:%M:%S"))
+        training_log = training_log + "Start Time: " + start_time.strftime("%H:%M:%S") + "\n"
 
         for i, data in enumerate(trainloader):
+            print(i)
             inputs, labels = data
             inputs, labels = inputs.to(device), labels.to(device)
 
+            optimizer.zero_grad()
+
+            #print("Test2")
 
             outputs_mobile = net(inputs, layer_no)
 
-            outputs_mobile.retain_grad()
+            #print("Test3")
 
             # Modify this line
             #server_grad = train_in_server(outputs_mobile, labels, layer_no)
-            server_grad = layout_output_sender.transmit_layeout(outputs_mobile, labels, layer_no)
+            server_reply = layout_output_sender.transmit_layeout(outputs_mobile, labels, layer_no)
 
+            server_grad = server_reply.get_layer_grad().to(device)
 
+            #print(len(server_reply.get_layer_grad()))
 
-            server_grad = server_grad.to(device)
+            outputs_mobile.backward(gradient=server_grad, retain_graph=True)
 
-            outputs_mobile.grad = server_grad
-
-            loss = criterion(outputs_mobile, labels)
-            optimizer.zero_grad()
-            loss.backward()
             optimizer.step()
 
+            #print("Current Batch Complete.")
+
         end_time = datetime.now()
-        print("End Time: ", end_time.strftime("%H:%M:%S"))
-        print("Total Time: ", end_time - start_time)
-        print('[%d, %5d] loss:%.4f\n' % (epoch + 1, (i + 1) * 100, loss.item()))
-    return net
+        #print("Server CrossEntropyLoss:", server_reply.get_loss_message())
+        training_log = training_log + "Server CrossEntropyLoss:" + server_reply.get_loss_message() + "\n"
+        #print("End Time: ", end_time.strftime("%H:%M:%S"))
+        training_log = training_log + "End Time: " + end_time.strftime("%H:%M:%S") + "\n"
+        #print("Total Time: ", end_time - start_time)
+        training_log = training_log + "Total Time: " + str(end_time - start_time) + "\n\n\n"
+    return training_log
 
 
 
@@ -253,7 +295,8 @@ def execute_train(csv_file_path):
     transform = transforms.Compose([
         transforms.RandomHorizontalFlip(),
         transforms.Resize((227, 227)),
-        transforms.ToTensor()
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5,],std=[0.5,])
     ])
 
 
@@ -265,9 +308,14 @@ def execute_train(csv_file_path):
     train_set, valid_set = data.random_split(face_dataset, [train_set_size, valid_set_size])
 
     trainloader = torch.utils.data.DataLoader(train_set, batch_size=100, shuffle=True, num_workers=0)
-    #testloader = torch.utils.data.DataLoader(valid_set, batch_size=100, shuffle=False, num_workers=0)
 
 
-    train_in_mobile(trainloader)
+    training_log = train_in_mobile(trainloader)
+    return training_log
+
+
+
+
+
 
 

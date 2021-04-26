@@ -1,5 +1,6 @@
 package com.capstone_project.split_learning_client;
 
+import android.os.AsyncTask;
 import android.os.Bundle;
 
 import com.chaquo.python.PyObject;
@@ -15,6 +16,7 @@ import android.view.View;
 
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.TextView;
 import android.widget.Toast;
 
 
@@ -28,14 +30,14 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse{
         setSupportActionBar(toolbar);
         initPython();
 
-        FloatingActionButton fab = findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
-        });
+        //FloatingActionButton fab = findViewById(R.id.fab);
+        //fab.setOnClickListener(new View.OnClickListener() {
+        //    @Override
+        //    public void onClick(View view) {
+        //        Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
+        //                .setAction("Action", null).show();
+        //    }
+        //});
     }
 
     @Override
@@ -78,17 +80,24 @@ public class MainActivity extends AppCompatActivity implements AsyncResponse{
 
     void callPythonCode(){
         Python py = Python.getInstance();
-        // 调用hello.py模块中的greet函数，并传一个参数
-        // 等价用法：py.getModule("hello").get("greet").call("Android");
+        //py.getModule("hello").get("greet").call("Android");
         py.getModule("split_mobile_train").callAttr("greet", "Android");
 
-        String default_csv_file_path = "default_train.csv";
-        py.getModule("split_mobile_train").callAttr("execute_train", default_csv_file_path);
-        // Python中调用Java类
+        String default_csv_file_path = "custom_dataset.csv";
+        PyObject log_obj = py.getModule("split_mobile_train").callAttr("execute_train", default_csv_file_path);
+        String training_log = log_obj.toString();
+        TextView training_log_view = findViewById(R.id.textview_first);
+        training_log_view.setText(training_log);
         //PyObject obj4 = py.getModule("hello").callAttr("get_java_bean");
         //JavaBean data = obj4.toJava(JavaBean.class);
         //data.print();
     }
+
+
+
+
+
+
 
 
 }
